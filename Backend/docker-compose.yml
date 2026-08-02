@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  aura_api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=sqlite+aiosqlite:///./aura_ai.db
+    volumes:
+      - .:/app
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: always

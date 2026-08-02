@@ -1,0 +1,55 @@
+# Node / Frontend
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+**/dist/
+**/.pnp
+**/.pnp.*
+**/.yarn/*
+!**/.yarn/patches
+!**/.yarn/plugins
+!**/.yarn/releases
+!**/.yarn/versions
+
+# Python / Backend
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/*.so
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
+**/.pytest_cache/
+**/.coverage
+**/htmlcov/
+
+# Databases, Storage, and Logs
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/aura_ai.db
+**/storage/
+**/logs/
+**/*.log
+
+# Environment variables & secrets
+**/.env
+**/.env.local
+**/.env*.local
+**/.env.development
+**/.env.production
+!**/.env.example
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+*.pem
