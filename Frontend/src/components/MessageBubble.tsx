@@ -18,9 +18,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
   return (
     <div
-      className={`w-full flex gap-3 sm:gap-4 my-4 ${
-        isUser ? "justify-end" : "justify-start"
-      } animate-in fade-in slide-in-from-bottom-2 duration-300`}
+      className={`w-full flex gap-3 sm:gap-4 my-4 ${isUser ? "justify-end" : "justify-start"
+        } animate-in fade-in slide-in-from-bottom-2 duration-300`}
     >
       {/* Assistant Avatar */}
       {!isUser && (
@@ -71,11 +70,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
         {/* Message Content Body */}
         <div
-          className={`rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 shadow-xl text-sm leading-relaxed ${
-            isUser
+          className={`rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 shadow-xl text-sm leading-relaxed ${isUser
               ? "user-bubble text-white rounded-tr-xs font-normal"
               : "glass-panel text-zinc-100 rounded-tl-xs border border-white/10"
-          }`}
+            }`}
         >
           {isUser ? (
             <p className="whitespace-pre-wrap">{message.content}</p>
@@ -117,6 +115,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                   },
                   h3({ children }) {
                     return <h3 className="text-base font-medium text-purple-300 mt-3 mb-1">{children}</h3>;
+                  },
+                  a({ href, children, ...props }: any) {
+                    return (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-purple-400 hover:text-purple-300 underline underline-offset-2 font-medium transition-colors"
+                        {...props}
+                      >
+                        {children}
+                      </a>
+                    );
                   }
                 }}
               >

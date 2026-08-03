@@ -238,6 +238,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           }));
         },
         onDone: () => {
+          const currentStore = get();
+          const assistantMsg = currentStore.messages.find((m) => m.id === assistantMsgId);
+          if (assistantMsg && assistantMsg.content) {
+            const queryLower = text.toLowerCase().trim();
+            if (queryLower.startsWith("open ") || queryLower.startsWith("launch ") || queryLower.startsWith("search ")) {
+              const urlMatch = assistantMsg.content.match(/https?:\/\/[^\s\)\>\]]+/);
+              if (urlMatch && typeof window !== "undefined") {
+                try {
+                  window.open(urlMatch[0], "_blank");
+                } catch (e) {
+                  console.warn("Popup blocked or failed to open:", e);
+                }
+              }
+            }
+          }
+
           set((s) => ({
             activeTool: null,
             isGenerating: false,

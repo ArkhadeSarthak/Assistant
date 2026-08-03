@@ -1,7 +1,8 @@
 import { apiFetch } from "./api";
 import { ChatApiRequest, ChatApiResponse, SSEStreamEvent } from "@/types/api";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const RAW_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE_URL = RAW_URL.replace(/\/+$/, "");
 
 export async function sendChatMessage(request: ChatApiRequest): Promise<ChatApiResponse> {
   return apiFetch<ChatApiResponse>("/chat", {

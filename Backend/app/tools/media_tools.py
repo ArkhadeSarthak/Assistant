@@ -10,8 +10,14 @@ class MediaControlInput(BaseModel):
     action: str = Field(description="Media action: 'play', 'pause', 'next', 'previous', 'volume_up', 'volume_down', 'mute'")
     query: str = Field(default="", description="Original user query for percentage extraction")
 
+def is_cloud_environment() -> bool:
+    return os.name != "nt" or bool(os.environ.get("RENDER")) or bool(os.environ.get("VERCEL"))
+
 def adjust_volume_by_percentage(query: str) -> str:
     """Extracts percentage from query (default 10%) and adjusts master system volume up or down."""
+    if is_cloud_environment():
+        return "🔊 **Local PC Control**: Adjusting master system volume requires running the AURA AI backend locally on your Windows PC (`http://localhost:8000`). Cloud backends on Render cannot adjust client hardware speakers."
+
     query_lower = query.lower()
     
     # Extract percentage number if specified (e.g. "by 20%", "15 percent", "10%")
@@ -40,6 +46,9 @@ def adjust_volume_by_percentage(query: str) -> str:
 def media_control_tool(action: str, query: str = "") -> str:
     """Controls media playback and master audio volume (volume percentage, play, pause, next, previous)."""
     app_logger.info(f"Executing media_control tool with action: {action}, query: {query}")
+    if is_cloud_environment():
+        return "🎵 **Local PC Control**: Audio volume and media key controls require running the AURA AI backend locally on your machine (`http://localhost:8000`)."
+
     action_clean = action.lower()
     combined = f"{action_clean} {query.lower()}"
 

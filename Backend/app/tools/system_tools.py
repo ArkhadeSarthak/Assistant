@@ -30,10 +30,15 @@ def get_system_stats_tool(dummy: str = "") -> str:
 class ScreenshotInput(BaseModel):
     filename: str = Field(default="screenshot.png", description="Filename for saved screenshot")
 
+def is_cloud_environment() -> bool:
+    return os.name != "nt" or bool(os.environ.get("RENDER")) or bool(os.environ.get("VERCEL"))
+
 @tool("take_screenshot", args_schema=ScreenshotInput)
 def take_screenshot_tool(filename: str = "screenshot.png") -> str:
     """Captures a screenshot of the local computer screen and saves it."""
     app_logger.info(f"Taking screen capture to file: {filename}")
+    if is_cloud_environment():
+        return "ℹ️ **Cloud Environment Notice**: Capturing your computer's screen requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud servers on Render do not have access to your local display."
     try:
         from PIL import ImageGrab
         img = ImageGrab.grab()
@@ -43,7 +48,7 @@ def take_screenshot_tool(filename: str = "screenshot.png") -> str:
         return f"Screenshot successfully saved to '{save_path}' at {datetime.now().strftime('%H:%M:%S')}."
     except Exception as e:
         app_logger.error(f"Screenshot error: {e}")
-        return f"Screenshot capture completed: Saved screen buffer image as '{filename}'."
+        return f"Unable to capture screen: {str(e)}"
 
 class LockComputerInput(BaseModel):
     dummy: str = Field(default="", description="Empty argument for lock computer")
@@ -52,18 +57,17 @@ class LockComputerInput(BaseModel):
 def lock_computer_tool(dummy: str = "") -> str:
     """Locks the computer workstation screen."""
     app_logger.info("Executing lock_computer_tool")
+    if is_cloud_environment():
+        return "🔒 **Local PC Control**: Locking your computer screen requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud-hosted backends on Render cannot control remote client physical hardware."
     try:
         if os.name == "nt":
             res = ctypes.windll.user32.LockWorkStation()
             if res == 0:
                 os.system("rundll32.exe user32.dll,LockWorkStation")
-        else:
-            os.system("xdg-screensaver lock")
         return "🔒 Workstation screen locked successfully."
     except Exception as e:
         app_logger.error(f"Lock workstation error: {e}")
         return f"Error locking workstation: {str(e)}"
-
 
 class SleepComputerInput(BaseModel):
     dummy: str = Field(default="", description="Empty argument for sleep computer")
@@ -72,11 +76,11 @@ class SleepComputerInput(BaseModel):
 def sleep_computer_tool(dummy: str = "") -> str:
     """Puts the local computer into sleep/standby mode."""
     app_logger.info("Executing sleep_computer_tool")
+    if is_cloud_environment():
+        return "💤 **Local PC Control**: Initiating sleep mode requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud backends cannot send power signals to remote client hardware."
     try:
         if os.name == "nt":
             os.system("powershell -c \"Add-Type -Assembly System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend', $false, $false)\"")
-        else:
-            os.system("systemctl suspend")
         return "💤 **Sleep Mode Initiated**: Computer entering low-power sleep mode."
     except Exception as e:
         return f"Error initiating sleep mode: {str(e)}"
@@ -88,11 +92,11 @@ class ShutdownComputerInput(BaseModel):
 def shutdown_computer_tool(dummy: str = "") -> str:
     """Initiates system shutdown."""
     app_logger.info("Executing shutdown_computer_tool")
+    if is_cloud_environment():
+        return "🔌 **Local PC Control**: Computer shutdown requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud backends cannot shut down remote client hardware."
     try:
         if os.name == "nt":
             os.system("shutdown /s /t 10")
-        else:
-            os.system("shutdown -h +1")
         return "🔌 **System Shutdown Initiated**: Shutting down computer in 10 seconds. (Run `shutdown /a` to cancel)."
     except Exception as e:
         return f"Error initiating shutdown: {str(e)}"
@@ -104,11 +108,11 @@ class RestartComputerInput(BaseModel):
 def restart_computer_tool(dummy: str = "") -> str:
     """Initiates system restart."""
     app_logger.info("Executing restart_computer_tool")
+    if is_cloud_environment():
+        return "🔄 **Local PC Control**: Restarting your computer requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud backends cannot restart remote client hardware."
     try:
         if os.name == "nt":
             os.system("shutdown /r /t 10")
-        else:
-            os.system("shutdown -r +1")
         return "🔄 **System Restart Initiated**: Restarting computer in 10 seconds. (Run `shutdown /a` to cancel)."
     except Exception as e:
         return f"Error initiating restart: {str(e)}"

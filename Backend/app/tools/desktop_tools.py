@@ -201,18 +201,33 @@ def launch_in_chrome(url: str, app_mode: bool = True):
     else:
         webbrowser.open(url)
 
+def is_cloud_environment() -> bool:
+    return os.name != "nt" or bool(os.environ.get("RENDER")) or bool(os.environ.get("VERCEL"))
+
 @tool("launch_app", args_schema=LaunchAppInput)
 def launch_app_tool(app_name: str) -> str:
-    """Launches an installed desktop application by its natural language name.
-    If the application is not available locally, returns 'Application not found.'"""
+    """Launches an installed desktop application or web platform by its natural language name."""
     app_logger.info(f"Executing launch_app tool for: {app_name}")
     name_clean = app_name.lower().strip()
     command = APP_MAP.get(name_clean, name_clean)
     display_name = name_clean.capitalize() if name_clean else "Application"
 
+    # Priority 1: Web platform mapping (LinkedIn, YouTube, GitHub, ChatGPT, Google, Spotify, etc.)
+    url = WEB_URL_MAP.get(name_clean)
+    if url:
+        if not is_cloud_environment():
+            try:
+                launch_in_chrome(url, app_mode=True)
+            except Exception:
+                pass
+        return f"🌐 **Opened {display_name}**: [{url}]({url})"
+
+    # Priority 2: Local desktop executable check
     available_locally = is_app_available_with_retry(name_clean, command, max_retries=3, retry_delay=0.1)
 
     if available_locally:
+        if is_cloud_environment():
+            return f"ℹ️ **Local Application**: Launching local desktop applications ('{display_name}') requires running the AURA AI backend locally on your Windows machine (`http://localhost:8000`). Cloud backends on Render cannot launch desktop software installed on client PCs."
         try:
             shortcut = find_start_menu_shortcut(name_clean) or find_start_menu_shortcut(command)
             if shortcut and os.path.exists(shortcut):
@@ -228,18 +243,12 @@ def launch_app_tool(app_name: str) -> str:
                 subprocess.Popen([command])
             return f"Successfully launched local application: '{display_name}'."
         except Exception as e:
-            app_logger.warning(f"Failed to execute local app '{app_name}' despite availability check: {e}")
+            app_logger.warning(f"Failed to execute local app '{app_name}': {e}")
 
-    # Fallback to Chrome web app/URL if app has a web mapping
-    url = WEB_URL_MAP.get(name_clean)
-    if url and not any(w in name_clean for w in ["app", "application"]):
-        try:
-            launch_in_chrome(url, app_mode=True)
-            return f"Opened '{display_name}' in Chrome: {url}"
-        except Exception as e:
-            app_logger.error(f"Failed to open browser fallback for '{app_name}': {e}")
+    if is_cloud_environment():
+        return f"ℹ️ **Desktop Tool Notice**: Launching local desktop software ('{display_name}') requires running the backend locally (`http://localhost:8000`). Web features (News, Weather, Calculations, Web Search) are fully supported on the cloud server!"
 
-    return "Application not found."
+    return f"Application '{display_name}' not found locally."
 
 class ListRunningAppsInput(BaseModel):
     limit: int = Field(default=10, description="Number of top processes to list")
