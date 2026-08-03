@@ -9,75 +9,97 @@ WEB_APP_KEYWORDS = [
 ]
 
 SYSTEM_POWER_KEYWORDS = [
-    "sleep", "suspend", "standby", "lock", "lock screen", "lock pc",
-    "lock computer", "restart", "reboot", "shutdown", "turn off",
-    "power off", "cpu", "ram", "battery", "screenshot", "system", "stats", "metrics"
+    "sleep", "suspend", "standby", "lock", "lock screen", "lock pc", "lock computer", 
+    "lock workstation", "lock desktop", "lock system", "restart", "reboot", 
+    "shutdown", "turn off", "power off"
 ]
+
 
 MEDIA_KEYWORDS = [
     "volume", "sound", "audio", "mute", "unmute", "louder", "quieter",
-    "play", "pause", "music", "song", "track", "next song", "previous song",
-    "skip track", "media", "turn up", "turn down", "increase volume", "decrease volume"
+    "play music", "pause music", "next song", "previous song",
+    "skip track", "turn up volume", "turn down volume", "increase volume", "decrease volume"
 ]
 
 WEATHER_KEYWORDS = [
-    "weather", "temperature", "forecast", "climate", "humidity", "rain"
+    "weather in", "temperature in", "forecast for", "current weather", "humidity in", "rain in"
+]
+
+NEWS_KEYWORDS = [
+    "news", "headline", "headlines", "latest news", "breaking news",
+    "gnews", "news about", "news on", "today's news", "current news", "articles on"
 ]
 
 async def supervisor_agent_node(state: AgentState) -> Dict[str, Any]:
-    """Master Supervisor Agent: Dynamically classifies intent across OS automation, browser, media, volume, system power, and desktop control."""
+    """Master Supervisor Agent: Dynamically classifies intent across OS automation, browser, media, volume, system power, desktop control, and direct conversation."""
     user_query = state.get("user_query", "") or (state.get("messages", [{}])[-1].get("content", "") if state.get("messages") else "")
-    query_lower = user_query.lower()
+    query_lower = user_query.lower().strip()
     
     app_logger.info(f"[SupervisorAgent] Classifying intent for query: '{user_query[:50]}'")
 
-    # Priority 1: System Power & Metrics (sleep, lock, restart, shutdown, cpu, ram)
-    if any(k in query_lower for k in SYSTEM_POWER_KEYWORDS):
+    # Check if query is an informational/explanatory question
+    is_informational = any(query_lower.startswith(p) for p in [
+        "what is", "what are", "what does", "why is", "why do", "explain", 
+        "tell me about", "who is", "definition of", "meaning of", "how does", "describe"
+    ]) or ("?" in query_lower and not any(act in query_lower for act in ["write", "create", "generate", "open", "launch", "mute", "turn up", "shutdown", "send", "calculate"]))
+
+    # Priority 1: Informational/general conversation queries route to direct conversation (unless requesting live tools like news/search/weather)
+    if is_informational and not any(k in query_lower for k in ["search web", "browse", "latest news", "open", "launch", "news", "headline"]):
+        next_agent = "formatter"
+        intent = "direct_conversation"
+
+    # Priority 2: System Power & Metrics
+    elif any(k in query_lower for k in SYSTEM_POWER_KEYWORDS):
         next_agent = "system"
         intent = "system_power_and_metrics"
 
-    # Priority 2: Media & Audio Volume Control (increase volume, mute, pause, play, etc.)
+    # Priority 3: Media & Audio Volume Control
     elif any(k in query_lower for k in MEDIA_KEYWORDS):
         next_agent = "media"
         intent = "media_control"
 
-    # Priority 3: Weather & Live Temperature
+    # Priority 4: Weather & Live Temperature
     elif any(k in query_lower for k in WEATHER_KEYWORDS):
         next_agent = "tool_agent"
         intent = "weather_info"
 
-    # Priority 3: Explicit Desktop Application Launching (open, launch, start local apps like LinkedIn, Spotify, VS Code, etc.)
-    elif any(k in query_lower for k in ["open", "launch", "start app", "run app", "switch to", "start", "run"]) and not any(k in query_lower for k in ["search", "browse", "http", "www", "google for"]):
+    # Priority 4b: Live News & Headlines
+    elif any(k in query_lower for k in NEWS_KEYWORDS):
+        next_agent = "tool_agent"
+        intent = "news_info"
+
+    # Priority 5: Desktop Application Launching
+    elif any(k in query_lower for k in ["open ", "launch ", "start app", "run app", "switch to "]) and not any(k in query_lower for k in ["search", "browse", "http", "www"]):
         next_agent = "desktop"
         intent = "desktop_automation"
 
-    # Priority 3: Web Apps & Browser (LinkedIn, YouTube, GitHub, ChatGPT, etc.)
+    # Priority 6: Web Apps & Browser
     elif any(k in query_lower for k in WEB_APP_KEYWORDS) or "search web" in query_lower or "browse" in query_lower:
         next_agent = "browser"
         intent = "web_and_social_browser"
 
-    # Priority 6: Communication & Messaging
-    elif any(k in query_lower for k in ["email", "whatsapp", "slack", "message", "telegram", "send message", "draft"]):
+    # Priority 7: Communication & Messaging
+    elif any(k in query_lower for k in ["send email", "send whatsapp", "send message", "draft email"]):
         next_agent = "communication"
         intent = "communication_draft"
 
-    # Priority 7: Tools & Calculations
-    elif any(k in query_lower for k in ["calculate", "math", "+", "-", "*", "/", "sqrt", "uuid", "date", "time"]):
+    # Priority 8: Tools & Calculations
+    elif any(k in query_lower for k in ["calculate", "math ", "sqrt(", "uuid generator"]):
         next_agent = "tool_agent"
         intent = "tool_execution"
 
-    # Priority 8: Software & Code
-    elif any(k in query_lower for k in ["code", "python", "typescript", "function", "script", "program"]):
+    # Priority 9: Software & Code Generation
+    elif any(k in query_lower for k in ["write code", "generate code", "create script", "write script", "write function", "refactor code", "fix code", "debug code"]):
         next_agent = "coding"
         intent = "software_development"
 
-    # Priority 9: File Operations
-    elif any(k in query_lower for k in ["file", "pdf", "csv", "read", "document", "parse"]):
+    # Priority 10: File Operations
+    elif any(k in query_lower for k in ["read file", "parse pdf", "read csv", "parse document"]):
         next_agent = "file"
         intent = "document_processing"
 
-    # Priority 10: Multi-step Planning
-    elif any(k in query_lower for k in ["plan", "strategy", "architecture", "steps"]):
+    # Priority 11: Multi-step Planning
+    elif any(k in query_lower for k in ["create plan", "multi-step strategy"]):
         next_agent = "planner"
         intent = "multi_step_planning"
     else:

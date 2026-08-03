@@ -10,6 +10,18 @@ export async function sendChatMessage(request: ChatApiRequest): Promise<ChatApiR
   });
 }
 
+export async function clearChatSession(sessionId: string): Promise<void> {
+  if (!sessionId) return;
+  try {
+    await apiFetch<{ status: string }>("/chat/clear", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId })
+    });
+  } catch (err) {
+    console.warn("Failed to clear chat session on backend/Redis:", err);
+  }
+}
+
 export interface StreamCallbacks {
   onThinking?: (text: string) => void;
   onToolStart?: (tool: { name: string; status: string }) => void;
@@ -21,7 +33,8 @@ export interface StreamCallbacks {
 
 export async function streamChatMessage(
   request: ChatApiRequest,
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
+  signal?: AbortSignal
 ): Promise<void> {
   const url = `${BASE_URL}/stream`;
   const token = typeof window !== "undefined" ? localStorage.getItem("aura_token") : null;
@@ -38,6 +51,7 @@ export async function streamChatMessage(
       method: "POST",
       headers,
       body: JSON.stringify(request),
+      signal,
     });
 
     if (!response.ok || !response.body) {
@@ -92,6 +106,10 @@ export async function streamChatMessage(
       }
     }
   } catch (error: any) {
+    if (error.name === "AbortError") {
+      console.log("Stream generation stopped by user.");
+      return;
+    }
     callbacks.onError?.(error.message || "Failed to establish SSE stream.");
   }
 }

@@ -6,7 +6,19 @@ from app.schemas.domain import ChatRequest, ChatResponse, MessageSchema
 from app.graphs.executor import run_aura_agent, stream_aura_agent_events
 from app.security.prompt_injection import detect_prompt_injection
 
+from pydantic import BaseModel
+from app.services.memory_service import memory_service
+
 router = APIRouter(prefix="", tags=["Chat"])
+
+class ClearChatRequest(BaseModel):
+    session_id: str
+
+@router.post("/chat/clear")
+async def clear_chat_endpoint(request: ClearChatRequest):
+    if request.session_id:
+        await memory_service.clear_session_data(request.session_id)
+    return {"status": "success", "session_id": request.session_id}
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
@@ -25,7 +37,7 @@ async def chat_endpoint(request: ChatRequest):
         session_id=session_id,
         message=MessageSchema(
             role="assistant",
-            content=final_state.get("final_response", ""),
+            content=final_state.get("final_response") or final_state.get("formatted_response") or "",
             tools_used=final_state.get("tool_results", [])
         ),
         execution_time_ms=elapsed_ms

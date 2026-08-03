@@ -44,7 +44,7 @@ export const Header: React.FC = () => {
       {/* Right section: Clear Chat Action */}
       <button
         onClick={clearChat}
-        className="text-xs text-zinc-400 hover:text-red-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/30 transition-all duration-200"
+        className="text-xs text-zinc-400 hover:text-red-400 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:border-red-500/30 transition-all duration-200 cursor-pointer"
         title="Clear conversation"
       >
         <Trash2 className="w-3.5 h-3.5" />

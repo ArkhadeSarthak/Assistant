@@ -1,4 +1,5 @@
 import os
+import ctypes
 import psutil
 from datetime import datetime
 from pydantic import BaseModel, Field
@@ -53,12 +54,16 @@ def lock_computer_tool(dummy: str = "") -> str:
     app_logger.info("Executing lock_computer_tool")
     try:
         if os.name == "nt":
-            os.system("rundll32.exe user32.dll,LockWorkStation")
+            res = ctypes.windll.user32.LockWorkStation()
+            if res == 0:
+                os.system("rundll32.exe user32.dll,LockWorkStation")
         else:
             os.system("xdg-screensaver lock")
-        return "Workstation screen locked successfully."
+        return "🔒 Workstation screen locked successfully."
     except Exception as e:
+        app_logger.error(f"Lock workstation error: {e}")
         return f"Error locking workstation: {str(e)}"
+
 
 class SleepComputerInput(BaseModel):
     dummy: str = Field(default="", description="Empty argument for sleep computer")

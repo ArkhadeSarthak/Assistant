@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Paperclip, Mic, Send, UploadCloud, Sparkles } from "lucide-react";
+import { Paperclip, Mic, Send, Square, UploadCloud, Sparkles } from "lucide-react";
 import { useChatStore } from "@/store/useChatStore";
 import { UploadChip } from "./UploadChip";
 
@@ -10,6 +10,7 @@ export const InputArea: React.FC = () => {
     inputValue,
     setInputValue,
     sendMessage,
+    stopGenerating,
     attachedFiles,
     uploadFileAndAttach,
     removeAttachedFile,
@@ -33,7 +34,7 @@ export const InputArea: React.FC = () => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (inputValue.trim() || attachedFiles.length > 0) {
+      if (!isGenerating && (inputValue.trim() || attachedFiles.length > 0)) {
         sendMessage();
         if (textareaRef.current) {
           textareaRef.current.style.height = "auto";
@@ -133,20 +134,31 @@ export const InputArea: React.FC = () => {
           <Mic className="w-5 h-5" />
         </button>
 
-        {/* Send Button */}
-        <button
-          onClick={() => sendMessage()}
-          disabled={isGenerating || (!inputValue.trim() && attachedFiles.length === 0)}
-          className={`p-2.5 rounded-2xl shrink-0 transition-all duration-200 ${
-            inputValue.trim() || attachedFiles.length > 0
-              ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 hover:scale-105 active:scale-95"
-              : "bg-white/5 text-zinc-600 cursor-not-allowed"
-          }`}
-          title="Send message"
-          aria-label="Send"
-        >
-          <Send className="w-5 h-5" />
-        </button>
+        {/* Send / Stop Button */}
+        {isGenerating ? (
+          <button
+            onClick={() => stopGenerating()}
+            className="p-2.5 rounded-2xl shrink-0 transition-all duration-200 bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 hover:scale-105 active:scale-95 shadow-lg shadow-red-500/20 flex items-center justify-center"
+            title="Stop response"
+            aria-label="Stop Generating"
+          >
+            <Square className="w-5 h-5 fill-current text-red-400" />
+          </button>
+        ) : (
+          <button
+            onClick={() => sendMessage()}
+            disabled={!inputValue.trim() && attachedFiles.length === 0}
+            className={`p-2.5 rounded-2xl shrink-0 transition-all duration-200 ${
+              inputValue.trim() || attachedFiles.length > 0
+                ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 hover:scale-105 active:scale-95"
+                : "bg-white/5 text-zinc-600 cursor-not-allowed"
+            }`}
+            title="Send message"
+            aria-label="Send"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Footer Hint */}

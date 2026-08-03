@@ -11,7 +11,8 @@ import {
   LineChart,
   CheckCircle,
   Loader2,
-  Cpu
+  Cpu,
+  Newspaper
 } from "lucide-react";
 import { ToolExecution } from "@/store/useChatStore";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,6 +42,9 @@ export const ToolStatusCard: React.FC<ToolStatusCardProps> = ({ tool }) => {
         return <Code className="w-4 h-4 text-purple-400" />;
       case "Analyzing Data":
         return <LineChart className="w-4 h-4 text-pink-400" />;
+      case "get_news":
+      case "Fetching News":
+        return <Newspaper className="w-4 h-4 text-amber-400" />;
       default:
         return <Cpu className="w-4 h-4 text-purple-400" />;
     }

@@ -16,6 +16,9 @@ async def run_aura_agent(session_id: str, message: str, user_id: str = None) -> 
             message = user_msgs[-1]
             app_logger.info(f"Resolved 'execute last query' from Redis to previous prompt: '{message}'")
 
+    # Persist user message to Redis memory
+    await memory_service.add_message(session_id, "user", message)
+
     initial_state: AgentState = {
         "session_id": session_id,
         "user_id": user_id,
@@ -43,6 +46,11 @@ async def run_aura_agent(session_id: str, message: str, user_id: str = None) -> 
 
     config = {"configurable": {"thread_id": session_id}}
     final_state = await aura_agent_graph.ainvoke(initial_state, config=config)
+
+    final_text = final_state.get("formatted_response") or final_state.get("final_response") or ""
+    if final_text:
+        await memory_service.add_message(session_id, "assistant", final_text)
+
     return final_state
 
 async def stream_aura_agent_events(session_id: str, message: str, user_id: str = None) -> AsyncGenerator[str, None]:
@@ -53,6 +61,9 @@ async def stream_aura_agent_events(session_id: str, message: str, user_id: str =
         if user_msgs:
             message = user_msgs[-1]
             app_logger.info(f"Resolved 'execute last query' from Redis to previous prompt: '{message}'")
+
+    # Persist user message to Redis memory
+    await memory_service.add_message(session_id, "user", message)
 
     initial_state: AgentState = {
         "session_id": session_id,
@@ -93,7 +104,10 @@ async def stream_aura_agent_events(session_id: str, message: str, user_id: str =
         await asyncio.sleep(0.15)
 
     # Stream final response tokens
-    final_text = final_state.get("formatted_response", "")
+    final_text = final_state.get("formatted_response") or final_state.get("final_response") or ""
+    if final_text:
+        await memory_service.add_message(session_id, "assistant", final_text)
+
     words = final_text.split(" ")
     for word in words:
         yield f"data: {json.dumps({'event_type': 'token', 'data': word + ' '})}\n\n"

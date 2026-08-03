@@ -200,3 +200,7 @@ code {
 @keyframes blink {
   50% { opacity: 0; }
 }
+
+* {
+  scrollbar-width: none;
+}

@@ -14,6 +14,7 @@ from app.tools.system_tools import (
 from app.tools.media_tools import media_control_tool
 from app.tools.communication_tools import draft_message_tool
 from app.tools.weather_tools import get_weather_tool
+from app.tools.news_tools import get_news_tool
 
 ALL_TOOLS = [
     calculator_tool,
@@ -35,6 +36,7 @@ ALL_TOOLS = [
     media_control_tool,
     draft_message_tool,
     get_weather_tool,
+    get_news_tool,
 ]
 
 TOOL_REGISTRY = {tool.name: tool for tool in ALL_TOOLS}

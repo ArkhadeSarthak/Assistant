@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AURA AI — Your Intelligent AI Assistant",
+  title: "AURA AI",
   description: "A modern, high-end, minimal single-page AI Assistant interface with interactive voice mode, tool execution status, reasoning steps, and file uploads.",
   keywords: ["AI Assistant", "ChatGPT alternative", "Voice AI", "Minimal UI", "Glassmorphism"],
 };

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { streamChatMessage } from "@/services/chat";
+import { streamChatMessage, clearChatSession } from "@/services/chat";
 import { uploadFileService } from "@/services/upload";
 
 export interface FileAttachment {
@@ -46,6 +46,7 @@ interface ChatStore {
   activeTool: ToolExecution | null;
   isGenerating: boolean;
   liveTranscript: string;
+  abortController: AbortController | null;
 
   // Actions
   setInputValue: (val: string) => void;
@@ -58,6 +59,7 @@ interface ChatStore {
   incrementVoiceTimer: () => void;
   resetVoiceTimer: () => void;
   sendMessage: (text?: string) => Promise<void>;
+  stopGenerating: () => void;
   clearChat: () => void;
 }
 
@@ -74,6 +76,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   activeTool: null,
   isGenerating: false,
   liveTranscript: "Listening...",
+  abortController: null,
 
   setInputValue: (val) => set({ inputValue: val }),
 
@@ -124,7 +127,28 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   incrementVoiceTimer: () => set((state) => ({ voiceTimer: state.voiceTimer + 1 })),
   resetVoiceTimer: () => set({ voiceTimer: 0 }),
 
-  clearChat: () => set({ messages: [], sessionId: `sess-${Date.now()}` }),
+  clearChat: () => {
+    const currentSessionId = get().sessionId;
+    if (currentSessionId) {
+      clearChatSession(currentSessionId);
+    }
+    set({ messages: [], sessionId: `sess-${Date.now()}` });
+  },
+
+  stopGenerating: () => {
+    const { abortController, messages } = get();
+    if (abortController) {
+      abortController.abort();
+    }
+    set({
+      isGenerating: false,
+      activeTool: null,
+      abortController: null,
+      messages: messages.map((m) =>
+        m.isStreaming ? { ...m, isStreaming: false } : m
+      )
+    });
+  },
 
   sendMessage: async (textToSend) => {
     const state = get();
@@ -148,11 +172,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       isStreaming: true
     };
 
+    const controller = new AbortController();
+
     set((s) => ({
       messages: [...s.messages, userMessage, assistantMessage],
       inputValue: "",
       attachedFiles: [],
       isGenerating: true,
+      abortController: controller,
       activeTool: {
         id: `t-init`,
         name: "Thinking",
@@ -214,6 +241,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           set((s) => ({
             activeTool: null,
             isGenerating: false,
+            abortController: null,
             messages: s.messages.map((m) =>
               m.id === assistantMsgId ? { ...m, isStreaming: false } : m
             )
@@ -229,6 +257,7 @@ FastAPI + LangGraph backend engine is connecting. How else can I assist you toda
             set((s) => ({
               activeTool: null,
               isGenerating: false,
+              abortController: null,
               messages: s.messages.map((m) =>
                 m.id === assistantMsgId
                   ? { ...m, content: fallbackText, isStreaming: false }
@@ -239,13 +268,15 @@ FastAPI + LangGraph backend engine is connecting. How else can I assist you toda
             set((s) => ({
               activeTool: null,
               isGenerating: false,
+              abortController: null,
               messages: s.messages.map((m) =>
                 m.id === assistantMsgId ? { ...m, isStreaming: false } : m
               )
             }));
           }
         }
-      }
+      },
+      controller.signal
     );
   }
 }));
