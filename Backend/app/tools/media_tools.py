@@ -15,19 +15,17 @@ def is_cloud_environment() -> bool:
 
 def adjust_volume_by_percentage(query: str) -> str:
     """Extracts percentage from query (default 10%) and adjusts master system volume up or down."""
-    if is_cloud_environment():
-        return "🔊 **Local PC Control**: Adjusting master system volume requires running the AURA AI backend locally on your Windows PC (`http://localhost:8000`). Cloud backends on Render cannot adjust client hardware speakers."
-
     query_lower = query.lower()
-    
-    # Extract percentage number if specified (e.g. "by 20%", "15 percent", "10%")
     match = re.search(r'(\d+)\s*(%|percent)?', query_lower)
     percentage = int(match.group(1)) if match else 10
-    
     direction = "down" if any(k in query_lower for k in ["decrease", "lower", "down", "reduce", "quieter"]) else "up"
-    vk = 0xAE if direction == "down" else 0xAF # VK_VOLUME_DOWN / VK_VOLUME_UP
+    act = "VOLUME_DOWN" if direction == "down" else "VOLUME_UP"
 
-    # Each keypress step in Windows is ~2%
+    if is_cloud_environment():
+        action_word = "decreased" if direction == "down" else "increased"
+        return f"🔊 [ACTION:{act}:{percentage}] Successfully {action_word} master volume by ~{percentage}%."
+
+    vk = 0xAE if direction == "down" else 0xAF # VK_VOLUME_DOWN / VK_VOLUME_UP
     steps = max(1, int(round(percentage / 2.0)))
     
     try:
@@ -46,11 +44,12 @@ def adjust_volume_by_percentage(query: str) -> str:
 def media_control_tool(action: str, query: str = "") -> str:
     """Controls media playback and master audio volume (volume percentage, play, pause, next, previous)."""
     app_logger.info(f"Executing media_control tool with action: {action}, query: {query}")
-    if is_cloud_environment():
-        return "🎵 **Local PC Control**: Audio volume and media key controls require running the AURA AI backend locally on your machine (`http://localhost:8000`)."
-
     action_clean = action.lower()
     combined = f"{action_clean} {query.lower()}"
+
+    if is_cloud_environment():
+        act = "MUTE" if "mute" in action_clean else ("VOLUME_UP" if "up" in combined or "louder" in combined or "increase" in combined else "VOLUME_DOWN")
+        return f"🎵 [ACTION:{act}] Executed media command: '{action}'."
 
     if any(k in combined for k in ["volume", "up", "down", "increase", "decrease", "louder", "quieter", "sound", "audio", "turn"]):
         return adjust_volume_by_percentage(query or action)

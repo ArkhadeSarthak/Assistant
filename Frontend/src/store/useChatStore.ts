@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { streamChatMessage, clearChatSession } from "@/services/chat";
 import { uploadFileService } from "@/services/upload";
+import { parseAndExecuteActionDirective } from "@/services/local_bridge";
 
 export interface FileAttachment {
   id: string;
@@ -240,7 +241,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         onDone: () => {
           const currentStore = get();
           const assistantMsg = currentStore.messages.find((m) => m.id === assistantMsgId);
+          let cleanedContent = assistantMsg ? assistantMsg.content : "";
+
           if (assistantMsg && assistantMsg.content) {
+            // Trigger local desktop OS action via local companion bridge
+            cleanedContent = parseAndExecuteActionDirective(assistantMsg.content);
+
             const queryLower = text.toLowerCase().trim();
             if (queryLower.startsWith("open ") || queryLower.startsWith("launch ") || queryLower.startsWith("search ")) {
               const urlMatch = assistantMsg.content.match(/https?:\/\/[^\s\)\>\]]+/);
@@ -259,7 +265,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             isGenerating: false,
             abortController: null,
             messages: s.messages.map((m) =>
-              m.id === assistantMsgId ? { ...m, isStreaming: false } : m
+              m.id === assistantMsgId ? { ...m, content: cleanedContent, isStreaming: false } : m
             )
           }));
         },

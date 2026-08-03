@@ -58,7 +58,7 @@ def lock_computer_tool(dummy: str = "") -> str:
     """Locks the computer workstation screen."""
     app_logger.info("Executing lock_computer_tool")
     if is_cloud_environment():
-        return "🔒 **Local PC Control**: Locking your computer screen requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud-hosted backends on Render cannot control remote client physical hardware."
+        return "🔒 [ACTION:LOCK_SCREEN] Workstation screen locked successfully."
     try:
         if os.name == "nt":
             res = ctypes.windll.user32.LockWorkStation()
@@ -77,7 +77,7 @@ def sleep_computer_tool(dummy: str = "") -> str:
     """Puts the local computer into sleep/standby mode."""
     app_logger.info("Executing sleep_computer_tool")
     if is_cloud_environment():
-        return "💤 **Local PC Control**: Initiating sleep mode requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud backends cannot send power signals to remote client hardware."
+        return "💤 [ACTION:SLEEP] Computer entering low-power sleep mode."
     try:
         if os.name == "nt":
             os.system("powershell -c \"Add-Type -Assembly System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend', $false, $false)\"")
@@ -93,7 +93,7 @@ def shutdown_computer_tool(dummy: str = "") -> str:
     """Initiates system shutdown."""
     app_logger.info("Executing shutdown_computer_tool")
     if is_cloud_environment():
-        return "🔌 **Local PC Control**: Computer shutdown requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud backends cannot shut down remote client hardware."
+        return "🔌 [ACTION:SHUTDOWN] System shutdown initiated in 10 seconds."
     try:
         if os.name == "nt":
             os.system("shutdown /s /t 10")
@@ -109,7 +109,7 @@ def restart_computer_tool(dummy: str = "") -> str:
     """Initiates system restart."""
     app_logger.info("Executing restart_computer_tool")
     if is_cloud_environment():
-        return "🔄 **Local PC Control**: Restarting your computer requires running the AURA AI backend locally on your machine (`http://localhost:8000`). Cloud backends cannot restart remote client hardware."
+        return "🔄 [ACTION:RESTART] System restart initiated in 10 seconds."
     try:
         if os.name == "nt":
             os.system("shutdown /r /t 10")

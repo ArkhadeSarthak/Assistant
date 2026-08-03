@@ -13,6 +13,7 @@
 !**/.yarn/versions
 
 # Python / Backend
+local_companion.py
 **/__pycache__/
 **/*.py[cod]
 **/*$py.class

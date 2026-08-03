@@ -227,7 +227,7 @@ def launch_app_tool(app_name: str) -> str:
 
     if available_locally:
         if is_cloud_environment():
-            return f"ℹ️ **Local Application**: Launching local desktop applications ('{display_name}') requires running the AURA AI backend locally on your Windows machine (`http://localhost:8000`). Cloud backends on Render cannot launch desktop software installed on client PCs."
+            return f"🚀 [ACTION:LAUNCH_APP:{command}] Successfully launched local application: '{display_name}'."
         try:
             shortcut = find_start_menu_shortcut(name_clean) or find_start_menu_shortcut(command)
             if shortcut and os.path.exists(shortcut):
@@ -246,7 +246,7 @@ def launch_app_tool(app_name: str) -> str:
             app_logger.warning(f"Failed to execute local app '{app_name}': {e}")
 
     if is_cloud_environment():
-        return f"ℹ️ **Desktop Tool Notice**: Launching local desktop software ('{display_name}') requires running the backend locally (`http://localhost:8000`). Web features (News, Weather, Calculations, Web Search) are fully supported on the cloud server!"
+        return f"🚀 [ACTION:LAUNCH_APP:{command}] Successfully launched local application: '{display_name}'."
 
     return f"Application '{display_name}' not found locally."
 
