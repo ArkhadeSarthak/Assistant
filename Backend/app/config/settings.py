@@ -12,7 +12,13 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
     OPENWEATHER_API_KEY: Optional[str] = None
+    INWORLD_TTS_KEY: Optional[str] = None
+    DEEPGRAM_API_KEY: Optional[str] = None
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_VISION_MODEL: str = "openrouter/free"
     DEFAULT_MODEL: str = "gemini-2.5-flash"
+
+
 
     # Upstash Redis Configuration
     UPSTASH_REDIS_REST_URL: Optional[str] = None

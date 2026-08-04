@@ -67,6 +67,42 @@ export const InputArea: React.FC = () => {
     handleFileProcess(e.dataTransfer.files);
   };
 
+  // Handle pasting images directly from clipboard (Ctrl+V / Cmd+V)
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    const items = clipboardData.items;
+    let hasImage = false;
+
+    if (items && items.length > 0) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith("image/")) {
+          hasImage = true;
+          const blob = item.getAsFile();
+          if (blob) {
+            const ext = item.type.split("/")[1] || "png";
+            const file = new File([blob], `pasted_image_${Date.now()}.${ext}`, { type: item.type });
+            uploadFileAndAttach(file);
+          }
+        }
+      }
+    } else if (clipboardData.files && clipboardData.files.length > 0) {
+      for (let i = 0; i < clipboardData.files.length; i++) {
+        const file = clipboardData.files[i];
+        if (file.type.startsWith("image/")) {
+          hasImage = true;
+          uploadFileAndAttach(file);
+        }
+      }
+    }
+
+    if (hasImage) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <div
       onDragOver={handleDragOver}
@@ -119,10 +155,12 @@ export const InputArea: React.FC = () => {
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           rows={1}
           placeholder="Ask me anything..."
           className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-400 focus:outline-none resize-none py-2 px-1 max-h-44 leading-relaxed font-sans"
         />
+
 
         {/* Microphone Voice Button */}
         <button

@@ -3,6 +3,8 @@ import uuid
 from fastapi import APIRouter, UploadFile, File
 from app.schemas.domain import FileUploadResponse
 from app.config.settings import settings
+from app.services.vision_service import vision_service
+from app.utils.logger import app_logger
 
 router = APIRouter(prefix="", tags=["Files"])
 
@@ -17,7 +19,14 @@ async def upload_file_endpoint(file: UploadFile = File(...)):
         f.write(content)
 
     snippet = None
-    if file.filename.endswith((".txt", ".md", ".csv", ".json")):
+    if vision_service.is_image_file(file.filename):
+        try:
+            snippet = await vision_service.analyze_image_async(content, custom_mime=file.content_type)
+            app_logger.info(f"[UploadRoute] Successfully extracted vision analysis for image: {file.filename}")
+        except Exception as e:
+            app_logger.error(f"[UploadRoute] Vision analysis error for {file.filename}: {e}")
+            snippet = f"Image file uploaded ({file.filename})."
+    elif file.filename.lower().endswith((".txt", ".md", ".csv", ".json")):
         try:
             snippet = content.decode("utf-8")[:300]
         except Exception:
@@ -30,3 +39,4 @@ async def upload_file_endpoint(file: UploadFile = File(...)):
         file_size=len(content),
         extracted_text_snippet=snippet
     )
+

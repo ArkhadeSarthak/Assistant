@@ -1,13 +1,36 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, User, Wrench } from "lucide-react";
+import { Bot, User, Wrench, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { Message } from "@/store/useChatStore";
 import { CodeBlock } from "./CodeBlock";
 import { ThinkingPanel } from "./ThinkingPanel";
 import { UploadChip } from "./UploadChip";
+import { playStreamingTtsAudio } from "@/services/voice";
+
+// Global audio controller to stop previous playback when a new message speech is triggered
+let activeAudioStop: (() => void) | null = null;
+
+function stopGlobalAudio() {
+  if (activeAudioStop) {
+    activeAudioStop();
+    activeAudioStop = null;
+  }
+}
+
+function cleanTextForSpeech(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/```[\s\S]*?```/g, " Code snippet omitted. ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/#+\s+/g, "")
+    .replace(/[\*_]{1,3}([^\*_]+)[\*_]{1,3}/g, "$1")
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
+    .replace(/\n+/g, " ")
+    .trim();
+}
 
 interface MessageBubbleProps {
   message: Message;
@@ -15,11 +38,53 @@ interface MessageBubbleProps {
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isUser = message.role === "user";
+  const [isLoadingTTS, setIsLoadingTTS] = useState(false);
+  const [isPlayingTTS, setIsPlayingTTS] = useState(false);
+
+  const handleToggleTTS = () => {
+    if (isPlayingTTS || isLoadingTTS) {
+      stopGlobalAudio();
+      setIsPlayingTTS(false);
+      setIsLoadingTTS(false);
+      return;
+    }
+
+    const textToSpeak = cleanTextForSpeech(message.content);
+    if (!textToSpeak) return;
+
+    stopGlobalAudio();
+    setIsLoadingTTS(true);
+
+    const { stop } = playStreamingTtsAudio(textToSpeak, "Aarav", {
+      onStartPlaying: () => {
+        setIsLoadingTTS(false);
+        setIsPlayingTTS(true);
+      },
+      onEnded: () => {
+        setIsPlayingTTS(false);
+        setIsLoadingTTS(false);
+        activeAudioStop = null;
+      },
+      onError: (err) => {
+        console.error("TTS playback error:", err);
+        setIsPlayingTTS(false);
+        setIsLoadingTTS(false);
+        activeAudioStop = null;
+      },
+    });
+
+    activeAudioStop = () => {
+      stop();
+      setIsPlayingTTS(false);
+      setIsLoadingTTS(false);
+    };
+  };
 
   return (
     <div
-      className={`w-full flex gap-3 sm:gap-4 my-4 ${isUser ? "justify-end" : "justify-start"
-        } animate-in fade-in slide-in-from-bottom-2 duration-300`}
+      className={`w-full flex gap-3 sm:gap-4 my-4 ${
+        isUser ? "justify-end" : "justify-start"
+      } animate-in fade-in slide-in-from-bottom-2 duration-300`}
     >
       {/* Assistant Avatar */}
       {!isUser && (
@@ -30,12 +95,32 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
       {/* Bubble Container */}
       <div className={`max-w-[85%] sm:max-w-[78%] flex flex-col ${isUser ? "items-end" : "items-start"}`}>
-        {/* Timestamp / Role Label */}
+        {/* Timestamp / Role Label & Speaker Button */}
         <div className="flex items-center gap-2 mb-1 px-1">
           <span className="text-[11px] font-medium text-zinc-400">
             {isUser ? "You" : "Aura AI"}
           </span>
           <span className="text-[10px] text-zinc-400">{message.timestamp}</span>
+
+          {/* Speaker Icon Button */}
+          <button
+            onClick={handleToggleTTS}
+            disabled={!message.content || message.isStreaming}
+            title={isPlayingTTS ? "Stop Speech" : "Speak Response"}
+            className={`p-1 rounded-md transition-all cursor-pointer flex items-center justify-center ${
+              isPlayingTTS
+                ? "text-purple-300 bg-purple-500/30 border border-purple-500/40 shadow-sm"
+                : "text-zinc-400 hover:text-purple-300 hover:bg-white/10"
+            }`}
+          >
+            {isLoadingTTS ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
+            ) : isPlayingTTS ? (
+              <VolumeX className="w-3.5 h-3.5 text-purple-300 animate-pulse" />
+            ) : (
+              <Volume2 className="w-3.5 h-3.5" />
+            )}
+          </button>
         </div>
 
         {/* User Attached Files */}
@@ -70,10 +155,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
         {/* Message Content Body */}
         <div
-          className={`rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 shadow-xl text-sm leading-relaxed ${isUser
+          className={`rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 shadow-xl text-sm leading-relaxed ${
+            isUser
               ? "user-bubble text-white rounded-tr-xs font-normal"
               : "glass-panel text-zinc-100 rounded-tl-xs border border-white/10"
-            }`}
+          }`}
         >
           {isUser ? (
             <p className="whitespace-pre-wrap">{message.content}</p>

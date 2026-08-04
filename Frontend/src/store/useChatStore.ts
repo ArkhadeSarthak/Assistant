@@ -9,7 +9,9 @@ export interface FileAttachment {
   type: string;
   size: string;
   url?: string;
+  isUploading?: boolean;
 }
+
 
 export interface ToolExecution {
   id: string;
@@ -85,31 +87,50 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((state) => ({ attachedFiles: [...state.attachedFiles, file] })),
 
   uploadFileAndAttach: async (file: File) => {
+    const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(file.name);
+    const objectUrl = isImage ? URL.createObjectURL(file) : undefined;
+    const tempId = `file-temp-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+
+    const tempAttachment: FileAttachment = {
+      id: tempId,
+      name: file.name,
+      type: file.name.split(".").pop() || "file",
+      size: `${sizeMB} MB`,
+      url: objectUrl,
+      isUploading: true
+    };
+
+    // Immediately add file to UI with loader spinner
+    set((state) => ({ attachedFiles: [...state.attachedFiles, tempAttachment] }));
+
     try {
       const result = await uploadFileService(file);
-      const fileAttachment: FileAttachment = {
-        id: result.file_id,
-        name: result.filename,
-        type: result.file_type.split("/").pop() || "file",
-        size: `${(result.file_size / (1024 * 1024)).toFixed(1)} MB`
-      };
-      set((state) => ({ attachedFiles: [...state.attachedFiles, fileAttachment] }));
-    } catch (e) {
-      console.warn("Upload service error, adding local attachment fallback:", e);
-      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
       set((state) => ({
-        attachedFiles: [
-          ...state.attachedFiles,
-          {
-            id: `file-${Date.now()}`,
-            name: file.name,
-            type: file.name.split(".").pop() || "txt",
-            size: `${sizeMB} MB`
-          }
-        ]
+        attachedFiles: state.attachedFiles.map((f) =>
+          f.id === tempId
+            ? {
+                id: result.file_id,
+                name: result.filename,
+                type: result.file_type.split("/").pop() || "file",
+                size: `${(result.file_size / (1024 * 1024)).toFixed(1)} MB`,
+                url: objectUrl,
+                isUploading: false
+              }
+            : f
+        )
+      }));
+    } catch (e) {
+      console.warn("Upload service error, keeping local attachment fallback:", e);
+      set((state) => ({
+        attachedFiles: state.attachedFiles.map((f) =>
+          f.id === tempId ? { ...f, isUploading: false } : f
+        )
       }));
     }
   },
+
+
 
   removeAttachedFile: (id) =>
     set((state) => ({ attachedFiles: state.attachedFiles.filter((f) => f.id !== id) })),

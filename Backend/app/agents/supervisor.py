@@ -68,15 +68,16 @@ async def supervisor_agent_node(state: AgentState) -> Dict[str, Any]:
         next_agent = "tool_agent"
         intent = "news_info"
 
-    # Priority 5: Desktop Application Launching
-    elif any(k in query_lower for k in ["open ", "launch ", "start app", "run app", "switch to "]) and not any(k in query_lower for k in ["search", "browse", "http", "www"]):
+    # Priority 5: Desktop Application Launching (Local App first, Web fallback)
+    elif any(k in query_lower for k in ["open ", "launch ", "start ", "run ", "switch to "]) and not any(k in query_lower for k in ["search web", "browse web", "http://", "https://"]):
         next_agent = "desktop"
         intent = "desktop_automation"
 
-    # Priority 6: Web Apps & Browser
+    # Priority 6: Web Search & Browser Navigation
     elif any(k in query_lower for k in WEB_APP_KEYWORDS) or "search web" in query_lower or "browse" in query_lower:
         next_agent = "browser"
         intent = "web_and_social_browser"
+
 
     # Priority 7: Communication & Messaging
     elif any(k in query_lower for k in ["send email", "send whatsapp", "send message", "draft email"]):
@@ -93,16 +94,22 @@ async def supervisor_agent_node(state: AgentState) -> Dict[str, Any]:
         next_agent = "coding"
         intent = "software_development"
 
-    # Priority 10: File Operations
-    elif any(k in query_lower for k in ["read file", "parse pdf", "read csv", "parse document"]):
+    # Priority 10: File Operations & Vision Image Analysis
+    elif any(k in query_lower for k in [
+        "read file", "parse pdf", "read csv", "parse document",
+        "image", "photo", "picture", "screenshot", "extract text",
+        "describe image", "what is in this image", "what's in this image",
+        "read image", "see image", "analyze image"
+    ]):
         next_agent = "file"
-        intent = "document_processing"
+        intent = "document_and_vision_processing"
 
     # Priority 11: Multi-step Planning
     elif any(k in query_lower for k in ["create plan", "multi-step strategy"]):
         next_agent = "planner"
         intent = "multi_step_planning"
     else:
+
         next_agent = "formatter"
         intent = "direct_conversation"
 

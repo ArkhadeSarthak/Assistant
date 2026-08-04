@@ -30,7 +30,7 @@ async def chat_endpoint(request: ChatRequest):
     if is_inj:
         raise HTTPException(status_code=400, detail=f"Prompt injection detected: {reason}")
 
-    final_state = await run_aura_agent(session_id, request.message)
+    final_state = await run_aura_agent(session_id, request.message, files=request.files)
     elapsed_ms = (time.time() - start_time) * 1000
 
     return ChatResponse(
@@ -52,6 +52,7 @@ async def stream_endpoint(request: ChatRequest):
         raise HTTPException(status_code=400, detail=f"Prompt injection detected: {reason}")
 
     return StreamingResponse(
-        stream_aura_agent_events(session_id, request.message),
+        stream_aura_agent_events(session_id, request.message, files=request.files),
         media_type="text/event-stream"
     )
+

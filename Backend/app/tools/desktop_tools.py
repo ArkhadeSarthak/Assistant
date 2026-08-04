@@ -4,6 +4,7 @@ import psutil
 import time
 import shutil
 import webbrowser
+from typing import Optional, Dict
 from pydantic import BaseModel, Field
 from langchain.tools import tool
 from app.utils.logger import app_logger
@@ -55,15 +56,58 @@ WEB_URL_MAP = {
     "chatgpt": "https://chatgpt.com",
 }
 
-def find_start_menu_shortcut(app_name: str) -> str:
-    """Scans Windows Start Menu directories for a matching application shortcut (.lnk)."""
+START_MENU_CACHE: Dict[str, str] = {}
+_cache_built = False
+
+def build_start_menu_cache():
+    """Indexes Windows Start Menu shortcuts into memory once for sub-millisecond instant app lookups."""
+    global _cache_built, START_MENU_CACHE
+    if _cache_built:
+        return
+    if os.name != "nt":
+        _cache_built = True
+        return
+
+    start_dirs = [
+        r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
+        os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs"),
+        os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs\Chrome Apps"),
+        os.path.expandvars(r"%USERPROFILE%\Desktop"),
+        r"C:\Users\Public\Desktop",
+    ]
+
+    for d in start_dirs:
+        if not os.path.exists(d):
+            continue
+        for root, _, files in os.walk(d):
+            for file in files:
+                if file.endswith(".lnk"):
+                    clean_name = file[:-4].lower().strip()
+                    full_path = os.path.join(root, file)
+                    if clean_name not in START_MENU_CACHE:
+                        START_MENU_CACHE[clean_name] = full_path
+
+    _cache_built = True
+
+try:
+    import threading
+    threading.Thread(target=build_start_menu_cache, daemon=True).start()
+except Exception:
+    pass
+
+def find_start_menu_shortcut(app_name: str) -> Optional[str]:
+
+    """Sub-millisecond lookup of application shortcut (.lnk) from in-memory cache."""
+    build_start_menu_cache()
     if os.name != "nt":
         return None
         
     app_clean = app_name.lower().strip()
-    target_names = [app_clean]
     
-    # Map common aliases to expected Start Menu shortcut names
+    # Check exact match in cache
+    if app_clean in START_MENU_CACHE:
+        return START_MENU_CACHE[app_clean]
+
     alias_map = {
         "vscode": ["visual studio code", "vscode", "code"],
         "vs code": ["visual studio code", "vscode"],
@@ -73,80 +117,65 @@ def find_start_menu_shortcut(app_name: str) -> str:
         "edge": ["microsoft edge", "edge"],
         "notepad": ["notepad"],
         "paint": ["paint", "mspaint"],
-        "postman": ["postman"],
         "spotify": ["spotify"],
         "whatsapp": ["whatsapp"],
+        "linkedin": ["linkedin"],
+        "youtube": ["youtube"],
+        "github": ["github", "github desktop"],
+        "chatgpt": ["chatgpt"],
+        "twitter": ["twitter", "x"],
         "camera": ["camera"],
-        "power bi": ["power bi desktop", "power bi"],
-        "android studio": ["android studio"],
-        "mysql workbench": ["mysql workbench"],
-        "word": ["word", "microsoft word"],
-        "excel": ["excel", "microsoft excel"],
-        "powerpoint": ["powerpoint", "microsoft powerpoint"]
     }
     
-    if app_clean in alias_map:
-        target_names = alias_map[app_clean]
+    target_names = alias_map.get(app_clean, [app_clean])
+    for t in target_names:
+        if t in START_MENU_CACHE:
+            return START_MENU_CACHE[t]
+        for key, path in START_MENU_CACHE.items():
+            if t == key or t in key.split():
+                return path
 
-    start_dirs = [
-        r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
-        os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs"),
-    ]
-    
-    for d in start_dirs:
-        if not os.path.exists(d):
-            continue
-        for root, _, files in os.walk(d):
-            for file in files:
-                if file.endswith(".lnk"):
-                    name_lower = file[:-4].lower()
-                    for t in target_names:
-                        if t == name_lower or t in name_lower.split():
-                            return os.path.join(root, file)
     return None
 
-def check_local_app_availability(command: str) -> bool:
-    """Checks if a command, binary, Start Menu shortcut, protocol scheme, or app executable exists locally on disk or PATH."""
+def find_local_app_executable(command: str) -> Optional[str]:
+    """Fast single-pass check for local app executable, protocol, or shortcut."""
     if not command:
-        return False
-    
+        return None
+
     clean_cmd = command[:-1] if command.endswith(":") else command
 
-    # 1. Check Start Menu shortcuts
-    if find_start_menu_shortcut(clean_cmd):
-        return True
+    # 1. Check Start Menu shortcut cache
+    shortcut = find_start_menu_shortcut(clean_cmd)
+    if shortcut:
+        return shortcut
 
     # 2. Check system PATH via shutil.which
-    if shutil.which(clean_cmd) or shutil.which(f"{clean_cmd}.exe"):
-        return True
+    which_path = shutil.which(clean_cmd) or shutil.which(f"{clean_cmd}.exe")
+    if which_path:
+        return which_path
 
-    # 3. Check Windows Registry App Paths for registered executables
+    # 3. Check Windows Registry App Paths
     if os.name == "nt":
         try:
             import winreg
             key_path = f"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\{clean_cmd}.exe"
-            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path):
-                return True
-        except Exception:
-            pass
-        try:
-            import winreg
-            key_path = f"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\{clean_cmd}.exe"
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path):
-                return True
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as k:
+                val, _ = winreg.QueryValueEx(k, "")
+                if val and os.path.exists(val):
+                    return val
         except Exception:
             pass
 
-    # 4. Check Windows Registry HKCR for registered protocol handlers (e.g. microsoft.windows.camera:, ms-settings:, etc.)
+    # 4. Check Windows HKCR Protocol Handlers (e.g. microsoft.windows.camera:, ms-settings:, etc.)
     if os.name == "nt":
         try:
             import winreg
             with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, clean_cmd):
-                return True
+                return command
         except Exception:
             pass
 
-    # 5. Check common installation directories for actual executable binary
+    # 5. Check common installation directories
     if os.name == "nt":
         user_profile = os.environ.get("USERPROFILE", "")
         program_files = os.environ.get("ProgramFiles", "C:\\Program Files")
@@ -166,24 +195,12 @@ def check_local_app_availability(command: str) -> bool:
 
         for p in search_paths:
             if os.path.exists(p):
-                return True
+                return p
 
-    return False
-
-def is_app_available_with_retry(app_name: str, command: str, max_retries: int = 3, retry_delay: float = 0.3) -> bool:
-    """Uses a Retry Mechanism to check if an application is available locally."""
-    for attempt in range(1, max_retries + 1):
-        app_logger.info(f"Local app check attempt {attempt}/{max_retries} for '{app_name}' (command: '{command}')")
-        if check_local_app_availability(command):
-            return True
-        if check_local_app_availability(app_name):
-            return True
-        if attempt < max_retries:
-            time.sleep(retry_delay)
-    return False
+    return None
 
 def launch_in_chrome(url: str, app_mode: bool = True):
-    """Launches a URL in Google Chrome using the Default user profile to prevent 'Who's using Chrome?' profile selector popups."""
+    """Launches a URL in Google Chrome using the Default user profile."""
     chrome_path = (
         shutil.which("chrome")
         or shutil.which("google-chrome")
@@ -206,49 +223,47 @@ def is_cloud_environment() -> bool:
 
 @tool("launch_app", args_schema=LaunchAppInput)
 def launch_app_tool(app_name: str) -> str:
-    """Launches an installed desktop application or web platform by its natural language name."""
+    """Instantly launches an installed desktop application or web platform."""
+    t_start = time.time()
     app_logger.info(f"Executing launch_app tool for: {app_name}")
     name_clean = app_name.lower().strip()
     command = APP_MAP.get(name_clean, name_clean)
-    display_name = name_clean.capitalize() if name_clean else "Application"
+    display_name = app_name.capitalize() if app_name else "Application"
 
-    # Priority 1: Web platform mapping (LinkedIn, YouTube, GitHub, ChatGPT, Google, Spotify, etc.)
-    url = WEB_URL_MAP.get(name_clean)
-    if url:
-        if not is_cloud_environment():
-            try:
-                launch_in_chrome(url, app_mode=True)
-            except Exception:
-                pass
-        return f"🌐 **Opened {display_name}**: [{url}]({url})"
+    # Fast single-pass check for local app executable / shortcut
+    local_target = find_local_app_executable(command) or find_local_app_executable(name_clean)
 
-    # Priority 2: Local desktop executable check
-    available_locally = is_app_available_with_retry(name_clean, command, max_retries=3, retry_delay=0.1)
-
-    if available_locally:
+    if local_target:
         if is_cloud_environment():
-            return f"🚀 [ACTION:LAUNCH_APP:{command}] Successfully launched local application: '{display_name}'."
+            url = WEB_URL_MAP.get(name_clean) or f"https://www.{name_clean}.com"
+            return f"🚀 [ACTION:LAUNCH_APP:{command}] [ACTION:OPEN_URL:{url}] Launched local application: '{display_name}'."
         try:
-            shortcut = find_start_menu_shortcut(name_clean) or find_start_menu_shortcut(command)
-            if shortcut and os.path.exists(shortcut):
-                os.startfile(shortcut)
+            if local_target.endswith(".lnk"):
+                os.startfile(local_target)
             elif os.name == "nt":
-                clean_cmd = command[:-1] if command.endswith(":") else command
-                cmd_path = shutil.which(clean_cmd) or shutil.which(f"{clean_cmd}.exe")
-                if cmd_path and os.path.exists(cmd_path):
-                    os.startfile(cmd_path)
+                if os.path.exists(local_target):
+                    os.startfile(local_target)
                 else:
-                    subprocess.Popen(f'start "" "{command}"', shell=True)
+                    subprocess.Popen(f'start "" "{local_target}"', shell=True)
             else:
-                subprocess.Popen([command])
-            return f"Successfully launched local application: '{display_name}'."
+                subprocess.Popen([local_target])
+            
+            app_logger.info(f"Launched local app '{display_name}' in {round((time.time() - t_start)*1000, 2)}ms")
+            return f"🚀 Successfully launched local application: **{display_name}**."
         except Exception as e:
-            app_logger.warning(f"Failed to execute local app '{app_name}': {e}")
+            app_logger.warning(f"Failed to launch local application '{app_name}': {e}")
 
-    if is_cloud_environment():
-        return f"🚀 [ACTION:LAUNCH_APP:{command}] Successfully launched local application: '{display_name}'."
+    # Fallback to Web URL in Chrome / Default Web Browser if local app is not installed
+    url = WEB_URL_MAP.get(name_clean) or f"https://www.{name_clean}.com"
+    if not is_cloud_environment():
+        try:
+            launch_in_chrome(url, app_mode=True)
+        except Exception as e:
+            app_logger.warning(f"Failed to launch Chrome URL for '{app_name}': {e}")
+            webbrowser.open(url)
 
-    return f"Application '{display_name}' not found locally."
+    app_logger.info(f"Opened web URL for '{display_name}' in {round((time.time() - t_start)*1000, 2)}ms")
+    return f"🌐 Local app **{display_name}** not found on device. Opened web version in Chrome: [{url}]({url})"
 
 class ListRunningAppsInput(BaseModel):
     limit: int = Field(default=10, description="Number of top processes to list")
