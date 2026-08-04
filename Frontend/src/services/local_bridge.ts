@@ -1,24 +1,29 @@
-const LOCAL_COMPANION_URL = "http://127.0.0.1:8001/execute";
+const COMPANION_ENDPOINTS = [
+  "http://127.0.0.1:8001/execute",
+  "http://localhost:8001/execute"
+];
 
 export async function sendActionToLocalCompanion(action: string, target: string = ""): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+  for (const endpoint of COMPANION_ENDPOINTS) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-    const res = await fetch(LOCAL_COMPANION_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, target }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, target }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-    if (res.ok) {
-      console.log(`[LocalBridge] Successfully sent action '${action}' to Local Companion Agent on http://127.0.0.1:8001.`);
-      return true;
+      if (res.ok) {
+        console.log(`[LocalBridge] Successfully executed action '${action}' via ${endpoint}.`);
+        return true;
+      }
+    } catch (err) {
+      console.warn(`[LocalBridge] Failed request to ${endpoint}:`, err);
     }
-  } catch (err) {
-    console.warn(`[LocalBridge] Local Companion Agent (http://127.0.0.1:8001) unavailable:`, err);
   }
   return false;
 }
@@ -51,7 +56,12 @@ export async function parseAndExecuteActionDirective(text: string): Promise<stri
   let cleaned = text.replace(/\[ACTION:[^\]]+\]\s*/g, "").trim();
 
   if (companionOffline) {
-    cleaned += "\n\n*(Note: Local Companion Agent on http://127.0.0.1:8001 is offline. Run `python local_companion.py` on your PC to enable local OS actions.)*";
+    const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+    if (isHttps) {
+      cleaned += "\n\n*(Note: Your browser is blocking HTTP calls from an HTTPS site [Mixed Content]. Allow insecure content in site settings or run `python local_companion.py` locally.)*";
+    } else {
+      cleaned += "\n\n*(Note: Local Companion Agent on http://127.0.0.1:8001 is offline. Run `python local_companion.py` on your PC to enable local OS actions.)*";
+    }
   }
 
   return cleaned;
