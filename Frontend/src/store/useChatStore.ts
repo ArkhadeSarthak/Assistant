@@ -259,14 +259,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             )
           }));
         },
-        onDone: () => {
+        onDone: async () => {
           const currentStore = get();
           const assistantMsg = currentStore.messages.find((m) => m.id === assistantMsgId);
           let cleanedContent = assistantMsg ? assistantMsg.content : "";
 
           if (assistantMsg && assistantMsg.content) {
             // Trigger local desktop OS action via local companion bridge
-            cleanedContent = parseAndExecuteActionDirective(assistantMsg.content);
+            cleanedContent = await parseAndExecuteActionDirective(assistantMsg.content);
 
             const queryLower = text.toLowerCase().trim();
             if (queryLower.startsWith("open ") || queryLower.startsWith("launch ") || queryLower.startsWith("search ")) {
@@ -290,6 +290,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             )
           }));
         },
+
         onError: (errMessage) => {
           console.warn("Backend streaming error:", errMessage);
           if (!hasReceivedTokens) {
